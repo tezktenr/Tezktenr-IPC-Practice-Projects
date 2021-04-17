@@ -1,0 +1,4 @@
+make
+./Producer &
+./Consumer &
+wait

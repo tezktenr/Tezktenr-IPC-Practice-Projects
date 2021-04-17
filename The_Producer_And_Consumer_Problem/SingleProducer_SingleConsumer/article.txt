@@ -1,0 +1,137 @@
+Article 1 (from Wikipedia)
+In computing, the producer–consumer problem (also known as the bounded-buffer problem) is a classic example of a multi-process synchronization problem.
+The first version of which was proposed by Edsger W. Dijkstra in 1965 in his unpublished manuscript, in which the buffer was unbounded.
+He subsequently published with a bounded buffer in 1972.
+In the first version of the problem, there are two cyclic processes, a producer and a consumer, which share a common, fixed-size buffer used as a queue. 
+The producer repeatedly generates data and writes it into the buffer. 
+The consumer repeatedly reads the data in the buffer, removing it in the course of reading it, and using that data in some way. 
+In the first version of the problem, with an unbounded buffer, the problem is how to design the producer and consumer code so that, in their exchange of data, no data is lost or duplicated, data is read by the consumer in the order it is written by the producer, and both processes make as much progress as possible. 
+In the later formulation of the problem, Dijkstra proposed multiple producers and consumers sharing a finite collection of buffers. 
+This added the additional problem of preventing producers from trying to write into buffers when all were full, and trying to prevent consumers from reading a buffer when all were empty.
+The first case to consider is the one in which there is a single producer and a single consumer, and there is a finite-size buffer. 
+The solution for the producer is to either go to sleep or discard data if the buffer is full. 
+The next time the consumer removes an item from the buffer, it notifies the producer, who starts to fill the buffer again. 
+In the same way, the consumer can go to sleep if it finds the buffer empty. 
+The next time the producer puts data into the buffer, it wakes up the sleeping consumer. 
+The solution can be reached by means of inter-process communication, typically using semaphores. 
+An inadequate solution could result in a deadlock where both processes are waiting to be awakened.
+Article 2 (from book Modern Operating System. Please buy the book if you want to read more)
+As an example of how these primitives can be used, let us consider the producer-consumer problem. 
+Two processes share a common, fixed-size buffer. 
+One of them, the producer, puts information into the buffer, and the other one, the consumer, takes it out. 
+(It is also possible to generalize the problem to have m producers and n consumers, but we will consider only the case of one producer and one consumer because this assumption simplifies the solutions.)
+Trouble arises when the producer wants to put a new item in the buffer, but it is already full. 
+The solution is for the producer to go to sleep, to be awakened when the consumer has removed one or more items. 
+Similarly, if the consumer wants to remove an item from the buffer and sees that the buffer is empty, it goes to sleep until the producer puts something in the buffer and wakes it up.
+This approach sounds simple enough, but it leads to the same kinds of race conditions we saw earlier with the spooler directory. 
+To keep track of the number of items in the buffer, we will need a variable, count. 
+If the maximum number of items the buffer can hold is N, the producer’s code will first test to see if count is N.
+If it is, the producer will go to sleep; 
+if it is not, the producer will add an item and increment count.
+The consumer’s code is similar: first test count to see if it is 0. 
+If it is, go to sleep; 
+if it is nonzero, remove an item and decrement the counter. 
+Each of the processes also tests to see if the other should be awakened, and if so, wakes it up. 
+The code for both producer and consumer is shown in Fig. 2-27.
+To express system calls such as sleep and wakeup in C, we will show them as calls to library routines. 
+They are not part of the standard C library but presumably would be made available on any system that actually had these system calls. 
+The procedures insert item and remove item, which are not shown, handle the bookkeeping of putting items into the buffer and taking items out of the buffer.
+Article 3 (from book Modern Operating System. Please buy the book if you want to read more)
+Semaphores solve the lost-wakeup problem, as shown in Fig. 2-28. 
+To make them work correctly, it is essential that they be implemented in an indivisible way.
+The normal way is to implement up and down as system calls, with the operating system briefly disabling all interrupts while it is testing the semaphore, updating it, and putting the process to sleep, if necessary. 
+As all of these actions take only a few instructions, no harm is done in disabling interrupts. 
+If multiple CPUs are being used, each semaphore should be protected by a lock variable, with the TSL or XCHG instructions used to make sure that only one CPU at a time examines the semaphore.
+Be sure you understand that using TSL or XCHG to prevent several CPUs from accessing the semaphore at the same time is quite different from the producer or consumer busy waiting for the other to empty or fill the buffer. 
+The semaphore operation will take only a few microseconds, whereas the producer or consumer
+might take arbitrarily long. 
+This solution uses three semaphores: one called full for counting the number of slots that are full, one called empty for counting the number of slots that are empty, and one called mutex to make sure the producer and consumer do not access the buffer at the same time. 
+Full is initially 0, empty is initially equal to the number of slots in the buffer, and mutex is initially 1. 
+Semaphores that are initialized to 1 and used by two or more processes to ensure that only one of them can enter its critical region at the same time are called binary semaphores. 
+If each process does a down just before entering its critical region and an up just after leaving it, mutual
+exclusion is guaranteed.
+Now that we have a good interprocess communication primitive at our disposal, let us go back and look at the interrupt sequence of Fig. 2-5 again. 
+In a system using semaphores, the natural way to hide interrupts is to have a semaphore, initially set to 0, associated with each I/O device. Just after starting an I/O device, the managing process does a down on the associated semaphore, thus blocking immediately.
+When the interrupt comes in, the interrupt handler then does an up on the associated semaphore, which makes the relevant process ready to run again. 
+In this model, step 5 in Fig. 2-5 consists of doing an up on the device’s semaphore, so that in step 6 the scheduler will be able to run the device manager. 
+Of course, if several processes are now ready, the scheduler may choose to run an even more important
+process next. 
+We will look at some of the algorithms used for scheduling later on in this chapter.
+In the example of Fig. 2-28, we have actually used semaphores in two different ways. 
+This difference is important enough to make explicit. 
+The mutex semaphore is used for mutual exclusion. 
+It is designed to guarantee that only one process at a time will be reading or writing the buffer and the associated variables. 
+This mutual exclusion is required to prevent chaos. 
+We will study mutual exclusion and how to achieve it in the next section.
+The other use of semaphores is for synchronization. 
+The full and empty semaphores are needed to guarantee that certain event sequences do or do not occur. 
+In this case, they ensure that the producer stops running when the buffer is full, and that the consumer stops running when it is empty. 
+This use is different from mutual exclusion.
+Article 4 (from book Modern Operating System. Please buy the book if you want to read more)
+Processes frequently need to communicate with other processes. 
+For example, in a shell pipeline, the output of the first process must be passed to the second process, and so on down the line. 
+Thus there is a need for communication between processes, preferably in a well-structured way not using interrupts. 
+In the following sections we will look at some of the issues related to this InterProcess Communication, or IPC.
+Very briefly, there are three issues here. 
+The first was alluded to above: how one process can pass information to another. 
+The second has to do with making sure two or more processes do not get in each other’s way, for example, two processes in an airline reservation system each trying to grab the last seat on a plane for a different customer. 
+The third concerns proper sequencing when dependencies are present: if process A produces data and process B prints them, B has to wait until A has produced some data before starting to print. 
+We will examine all three of these issues starting in the next section.
+It is also important to mention that two of these issues apply equally well to threads. 
+The first one—passing information—is easy for threads since they share a common address space 
+(threads in different address spaces that need to communicate fall under the heading of communicating processes). 
+However, the other two—keeping out of each other’s hair and proper sequencing—apply equally well to threads. 
+The same problems exist and the same solutions apply. 
+Below we will discuss the problem in the context of processes, but please keep in mind that the same problems and solutions also apply to threads.
+2.3.1 Race Conditions
+In some operating systems, processes that are working together may share some common storage that each one can read and write. 
+The shared storage may be in main memory (possibly in a kernel data structure) or it may be a shared file; 
+the location of the shared memory does not change the nature of the communication or the problems that arise. 
+To see how interprocess communication works in practice, let us now consider a simple but common example: a print spooler. 
+When a process wants to print a file, it enters the file name in a special spooler directory. 
+Another process, the printer daemon, periodically checks to see if there are any files to be printed, and if there are, it prints them and then removes their names from the directory.
+Imagine that our spooler directory has a very large number of slots, numbered 0, 1, 2, ..., each one capable of holding a file name. 
+Also imagine that there are two shared variables, out, which points to the next file to be printed, and in, which points to the next free slot in the directory. 
+These two variables might well be kept in a two-word file available to all processes. 
+At a certain instant, slots 0 to 3 are empty (the files have already been printed) and slots 4 to 6 are full (with the names of files queued for printing). 
+More or less simultaneously, processes A and B decide they want to queue a file for printing. 
+This situation is shown in Fig. 2-21. 
+In jurisdictions where Murphy’s law† is applicable, the following could happen.
+Process A reads in and stores the value, 7, in a local variable called next free slot. 
+Just then a clock interrupt occurs and the CPU decides that process A has run long enough, so it switches to process B. Process B also reads in and also gets a 7. 
+It, too, stores it in its local variable next free slot. 
+At this instant both processes think that the next available slot is 7.
+Process B now continues to run. 
+It stores the name of its file in slot 7 and updates in to be an 8. 
+Then it goes off and does other things.
+Eventually, process A runs again, starting from the place it left off. 
+It looks at next free slot, finds a 7 there, and writes its file name in slot 7, erasing the name that process B just put there. 
+Then it computes next free slot + 1, which is 8, and sets in to 8. 
+The spooler directory is now internally consistent, so the printer daemon will not notice anything wrong, but process B will never receive any output.
+User B will hang around the printer for years, wistfully hoping for output that never comes. 
+Situations like this, where two or more processes are reading or writing some shared data and the final result depends on who runs precisely when, are called race conditions. 
+Debugging programs containing race conditions is no fun at all. 
+The results of most test runs are fine, but once in a blue moon something weird and unexplained happens. 
+Unfortunately, with increasing parallelism due to increasing numbers of cores, race condition are becoming more common. 
+2.3.2 Critical Regions
+How do we avoid race conditions? 
+The key to preventing trouble here and in many other situations involving shared memory, shared files, and shared everything else is to find some way to prohibit more than one process from reading and writing the shared data at the same time. 
+Put in other words, what we need is mutual exclusion, that is, some way of making sure that if one process is using a shared variable or file, the other processes will be excluded from doing the same thing.
+The difficulty above occurred because process B started using one of the shared variables before process A was finished with it. 
+The choice of appropriate primitive operations for achieving mutual exclusion is a major design issue in any operating system, and a subject that we will examine in great detail in the following sections.
+The problem of avoiding race conditions can also be formulated in an abstract way. 
+Part of the time, a process is busy doing internal computations and other things that do not lead to race conditions.
+However, sometimes a process has to access shared memory or files, or do other critical things that can lead to races. 
+That part of the program where the shared memory is accessed is called the critical region or critical section. 
+If we could arrange matters such that no two processes were ever in their critical regions at the same time, we could avoid races.
+Although this requirement avoids race conditions, it is not sufficient for having parallel processes cooperate correctly and efficiently using shared data. 
+We need four conditions to hold to have a good solution:
+1. No two processes may be simultaneously inside their critical regions.
+2. No assumptions may be made about speeds or the number of CPUs.
+3. No process running outside its critical region may block any process.
+4. No process should have to wait forever to enter its critical region.
+In an abstract sense, the behavior that we want is shown in Fig. 2-22. 
+Here process A enters its critical region at time T1. 
+A little later, at time T2 process B attempts to enter its critical region but fails because another process is already in its critical region and we allow only one at a time. 
+Consequently, B is temporarily suspended until time T3 when A leaves its critical region, allowing B to enter immediately.
+Eventually B leaves (at T4) and we are back to the original situation with no processes in their critical regions.
