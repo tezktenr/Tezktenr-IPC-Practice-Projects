@@ -29,10 +29,11 @@ static int Running = 1;
 
 void* waitForFinish()
 {
-	char msgbuf[1024];
+	char msgbuf[1025];
 	while (Running)
 	{
-		mq_receive(mq_fd, msgbuf, 1024, NULL);
+		int receive = mq_receive(mq_fd, msgbuf, 1024, NULL);
+		msgbuf[receive] = '\0';
 		if (strcmp(msgbuf, END) == 0)
 		{
 			int currVal;
@@ -87,6 +88,8 @@ void Consumer()
 	}
 
 	fclose(output);
+
+	pthread_join(daemonTID, NULL); 
 }
 
 

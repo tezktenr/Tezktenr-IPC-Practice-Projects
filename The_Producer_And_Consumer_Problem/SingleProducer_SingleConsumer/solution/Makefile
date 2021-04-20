@@ -6,8 +6,8 @@ all: app
 
 app: $(SOURCES)
 	@echo ------------------ compiling all source files to executable -------------------
-	gcc $(CFLAGS) producer.c ipc.c buf_util.c -o Producer $(OPTION)
-	gcc $(CFLAGS) consumer.c ipc.c buf_util.c -o Consumer $(OPTION)
+	gcc -g $(CFLAGS) producer.c ipc.c buf_util.c -o Producer $(OPTION)
+	gcc -g $(CFLAGS) consumer.c ipc.c buf_util.c -o Consumer $(OPTION)
 
 clean:
 	@echo ------------------ removing object files and executable -------------------
