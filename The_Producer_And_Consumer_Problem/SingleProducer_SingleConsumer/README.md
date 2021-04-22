@@ -22,7 +22,7 @@ In this project, you must use the POSIX Shared Memory with "mmap()" to create th
 
 Note: You are **NOT ALLOWED** to use the POSIX Message Queue to store the main data, which refer to the data produced by the Producer and consumed by the Consumer. The POSIX Message Queue should only be used to notify another process about program status or to exchange metadata.
 
-The buffer should hold an array of C-String. You should manually control the pointer to the shared memory to implement an array. For example, if `char* buf` points to the start of the shared memory region and assume each item in the array is 1024 bytes, then you would write `buf+2*1024` to select the element at index 2 in the array.
+The buffer should hold an array of C-String. You should manually utilize pointer arithmetic to implement an array in the shared memory. For example, if `char* buf` points to the start of the shared memory region and assume each item in the array is consisted of 1024 characters, then, to select the element at index 2 in the array, you would write `buf+2*1024`.
 
 You may assume that each item in the buffer would contain less than or equal to 1024 characters. There should be less than or equal to 20 items in the buffer at one time.
 
